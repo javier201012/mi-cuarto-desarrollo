@@ -489,4 +489,10 @@ async function bootstrap() {
   }
 }
 
-bootstrap()
+// Export for Netlify Functions (serverless)
+export { app, mongoose, MONGODB_URI }
+
+// Only start the HTTP server when running locally (not in Netlify Functions / Lambda)
+if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  bootstrap()
+}
