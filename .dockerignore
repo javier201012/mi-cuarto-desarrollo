@@ -1,0 +1,9 @@
+.git
+.github
+.vscode
+node_modules
+dist
+npm-debug.log*
+railway-ci-check.log
+.env
+server/.env
