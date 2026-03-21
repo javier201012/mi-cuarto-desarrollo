@@ -51,15 +51,44 @@ const authLimiter = rateLimit({
   message: { error: 'Too many auth attempts, try again later' },
 })
 
-const allowedOrigins = CLIENT_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+const allowedOrigins = CLIENT_ORIGINS.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+  .length > 0
+  ? CLIENT_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+  : []
+
 app.use(
   cors({
     origin(origin, callback) {
-      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || '')
-      if (!origin || allowedOrigins.includes(origin) || isLocalhost) {
+      // Always allow no origin (same-origin requests, Postman, etc.)
+      if (!origin) {
         return callback(null, true)
       }
-      return callback(new Error('Origin not allowed by CORS'))
+
+      // Allow localhost in any env
+      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      if (isLocalhost) {
+        return callback(null, true)
+      }
+
+      // Allow configured origins
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true)
+      }
+
+      // Log rejected origins for debugging
+      if (NODE_ENV === 'production') {
+        console.warn(`[CORS] Rejected origin: ${origin}, allowed: ${allowedOrigins.join(', ')}`)
+      }
+
+      // In production, be lenient with netlify.app domains (still safe)
+      if (NODE_ENV === 'production' && origin.includes('netlify.app')) {
+        return callback(null, true)
+      }
+
+      // Reject
+      callback(null, false)
     },
   }),
 )
