@@ -28,12 +28,14 @@ cp server/.env.example server/.env
 
 ```env
 PORT=4000
-CLIENT_ORIGIN=http://localhost:5173
-JWT_SECRET=replace-with-a-strong-secret
+CLIENT_ORIGINS=http://localhost:5173,http://localhost:5174
+NODE_ENV=development
+JWT_SECRET=replace-with-a-very-long-random-secret
 MONGODB_URI=your-mongodb-uri
 ```
 
 Nota: si tu password de Mongo contiene `@`, debes codificarlo como `%40` en la URI.
+En Railway usa `NODE_ENV=production` y un `JWT_SECRET` de al menos 32 caracteres.
 
 ## Scripts
 

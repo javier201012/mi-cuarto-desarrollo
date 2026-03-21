@@ -1,15 +1,18 @@
 import cors from 'cors'
 import dotenv from 'dotenv'
 import express from 'express'
+import helmet from 'helmet'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import mongoose from 'mongoose'
+import { rateLimit } from 'express-rate-limit'
 
 dotenv.config({ path: 'server/.env' })
 
 const {
   PORT = 4000,
   MONGODB_URI,
+  NODE_ENV = 'development',
   JWT_SECRET = 'change-me-in-production',
   CLIENT_ORIGINS = 'http://localhost:5173,http://localhost:5174',
 } = process.env
@@ -19,7 +22,35 @@ if (!MONGODB_URI) {
   process.exit(1)
 }
 
+if (NODE_ENV === 'production' && (!JWT_SECRET || JWT_SECRET.length < 32 || JWT_SECRET === 'change-me-in-production')) {
+  console.error('JWT_SECRET must be a strong value (>=32 chars) in production')
+  process.exit(1)
+}
+
 const app = express()
+app.set('trust proxy', 1)
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  }),
+)
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+const authLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many auth attempts, try again later' },
+})
+
 const allowedOrigins = CLIENT_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
 app.use(
   cors({
@@ -32,7 +63,8 @@ app.use(
     },
   }),
 )
-app.use(express.json())
+app.use('/api', apiLimiter)
+app.use(express.json({ limit: '1mb' }))
 
 const userSchema = new mongoose.Schema(
   {
@@ -263,7 +295,7 @@ app.get('/api/health', (_, res) => {
   res.json({ ok: true, service: 'crypto-exchange-api' })
 })
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body
 
@@ -293,7 +325,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 })
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body
 
